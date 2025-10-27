@@ -228,19 +228,40 @@ def graceful_eval_cleanup(
     Clean up env, gpu cache, and compiled CUDA extensions after evaluation
     """  # delete ran-specific function definitions before next eval run
     del curr_context
-    # Clear CUDA cache and reset GPU state
-    with torch.cuda.device(device):
-        torch.cuda.empty_cache()
 
-        # does this help?
-        torch.cuda.reset_peak_memory_stats(device=device)
+    
+    # Clear CUDA cache and reset GPU state with proper error handling
+    try:
+        with torch.cuda.device(device):
+            # First synchronize to ensure all operations are complete
+            torch.cuda.synchronize(device=device)
+            
+            # Clear CUDA cache with error handling
+            try:
+                torch.cuda.empty_cache()
+            except RuntimeError as e:
+                print(f"[Warning] Failed to empty CUDA cache: {e}")
+                # Continue execution even if cache clearing fails
+            
+            # Reset peak memory stats with error handling
+            try:
+                torch.cuda.reset_peak_memory_stats(device=device)
+            except RuntimeError as e:
+                print(f"[Warning] Failed to reset peak memory stats: {e}")
+                # Continue execution even if reset fails
+            
+            torch.cuda.synchronize(
+                device=device
+            )  # Wait for all CUDA operations to complete
 
-        torch.cuda.synchronize(
-            device=device
-        )  # Wait for all CUDA operations to complete
-    if tempfile:
-        tempfile.close()
-        os.remove(tempfile.name)
+            if tempfile:
+                tempfile.close()
+                os.remove(tempfile.name)
+                
+    except RuntimeError as e:
+        print(f"[Warning] CUDA cleanup failed: {e}")
+        # Continue execution even if CUDA operations fail
+        # This prevents the entire evaluation from failing due to cleanup issues
 
     # _cleanup_cuda_extensions() # SIMON NOTE: is this necessary?
 
@@ -551,7 +572,7 @@ def eval_kernel_against_ref(
             torch.cuda.synchronize(device=device)
         if verbose:
             print("[Eval] New Model with Custom CUDA Kernel Loaded")
-    except RuntimeError as e:
+    except Exception as e:
         print(
             f"Failed to load custom CUDA kernel; Compiled but not able to run, count as runtime error. \nError: {e}"
         )
