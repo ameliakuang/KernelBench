@@ -125,6 +125,31 @@ def write_batch_to_json(entries_to_write: list, f_path: str):
     
     print(f"[INFO] Wrote {len(entries_to_write)} entries to {f_path}")
 
+def fetch_ref_arch_from_dataset(dataset: list[str], 
+                                problem_id: int) -> tuple[str, str, str]:
+    """
+    Fetch the reference architecture from the problem directory
+    problem_id should be logical index (1-indexed), matching the problem_id in the problem_name
+
+    Returns:
+        ref_arch_path: str, the path to the reference architecture
+        ref_arch_name: str, the name of the reference architecture
+        ref_arch_src: str, the source code of the reference architecture
+    """
+    ref_arch_path = None
+    
+    for file in dataset:
+        if file.split("/")[-1].split("_")[0] == str(problem_id):
+            ref_arch_path = file
+            break
+    if ref_arch_path is None:
+        raise ValueError(f"No reference architecture found for problem_id {problem_id}")
+    
+    ref_arch_src = read_file(ref_arch_path)
+
+    ref_arch_name = ref_arch_path.split("/")[-1]
+    return (ref_arch_path, ref_arch_name, ref_arch_src)
+
 @app.cls(image=image, scaledown_window=5)
 class EvalFunc:
 
@@ -138,7 +163,7 @@ class EvalFunc:
             use_torch_compile: bool = False,
             torch_compile_backend: str="inductor", 
             torch_compile_options: str="default",
-            device: torch.device = torch.cuda.current_device() if torch.cuda.is_available() else None,
+            device: int = torch.cuda.current_device() if torch.cuda.is_available() else None,
             verbose: bool = False,
     ):
         """
@@ -253,14 +278,18 @@ def record_baseline_times(config: BaselineConfig,
     return json_results
 
 
-@pydra.main(base=BaselineConfig)
-def main(config: BaselineConfig):
-    """
-    Generate baseline time for KernelBench problems using Modal GPUs
-    """
-    print(f"Generating baseline time for level {config.level} on {config.gpu} Modal")
-    print(f"Hardware name: {config.hardware_name}")
-    print(f"Parallel GPUs: {config.num_gpu_devices}, Timeout: {config.timeout}s, Num trials: {config.num_trials}")
+if __name__ == "__main__":
+    # DEBUG and simple testing
+    # test_measure_particular_program(2, 28)
+    gpu = "L40S"
+    # Replace this with whatever hardware you are running on 
+    hardware_name = f"{gpu}_modal"
+    print(f"Generating baseline time for {hardware_name}")
+    # input(f"You are about to start recording baseline time for {hardware_name}, press Enter to continue...")
+    # # Systematic recording of baseline time
+
+    # if os.path.exists(os.path.join(TIMING_DIR, hardware_name)):
+    #     input(f"Directory {hardware_name} already exists, Are you sure you want to overwrite? Enter to continue...")
 
     # 1. Record Torch Eager
     print("\n[1/2] Recording baseline times with PyTorch Eager execution...")
