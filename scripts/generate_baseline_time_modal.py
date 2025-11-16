@@ -144,7 +144,7 @@ def fetch_ref_arch_from_dataset(dataset: list[str],
     ref_arch_name = ref_arch_path.split("/")[-1]
     return (ref_arch_path, ref_arch_name, ref_arch_src)
 
-@app.cls(image=image, container_idle_timeout=5)
+@app.cls(image=image, scaledown_window=5)
 class EvalFunc:
 
     @modal.method()
@@ -156,7 +156,7 @@ class EvalFunc:
             use_torch_compile: bool = False,
             torch_compile_backend: str="inductor", 
             torch_compile_options: str="default",
-            device: torch.device = torch.cuda.current_device() if torch.cuda.is_available() else None,
+            device: int = torch.cuda.current_device() if torch.cuda.is_available() else None,
             verbose: bool = False,
     ):
         """
@@ -287,7 +287,7 @@ def record_baseline_times(use_torch_compile: bool = False,
 if __name__ == "__main__":
     # DEBUG and simple testing
     # test_measure_particular_program(2, 28)
-    gpu = "A10G"
+    gpu = "L40S"
     # Replace this with whatever hardware you are running on 
     hardware_name = f"{gpu}_modal"
     print(f"Generating baseline time for {hardware_name}")
